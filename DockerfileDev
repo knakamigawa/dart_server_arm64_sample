@@ -1,0 +1,52 @@
+FROM debian:stable-slim as build
+
+RUN set -eux; \
+    apt-get update
+RUN apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        dnsutils \
+        openssh-client \
+        unzip \
+    ; \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /root
+
+RUN curl https://storage.googleapis.com/dart-archive/channels/stable/release/2.14.3/sdk/dartsdk-linux-arm64-release.zip -o /tmp/dart-sdk.zip 
+RUN unzip /tmp/dart-sdk.zip -d /usr/lib && rm /tmp/dart-sdk.zip
+
+ENV PATH /usr/lib/dart-sdk/bin:$PATH
+ENV PATH /root/.pub-cache/bin:$PATH
+
+RUN set -eux; \
+    for f in \
+        /etc/nsswitch.conf \
+        /etc/ssl/certs \
+        /lib/aarch64-linux-gnu/libc.so.6 \
+        /lib/aarch64-linux-gnu/libdl.so.2 \
+        /lib/aarch64-linux-gnu/libm.so.6 \
+        /lib/aarch64-linux-gnu/libnss_dns.so.2 \
+        /lib/aarch64-linux-gnu/libpthread.so.0 \
+        /lib/aarch64-linux-gnu/libresolv.so.2 \
+        /lib/aarch64-linux-gnu/librt.so.1 \
+        /usr/share/ca-certificates \
+    ; do \
+        dir="$(dirname "$f")"; \
+        mkdir -p "/runtime$dir"; \
+        cp --archive --link --dereference --no-target-directory "$f" "/runtime$f"; \
+    done
+
+WORKDIR /app
+COPY pubspec.* ./
+RUN dart pub get
+
+COPY . .
+RUN dart compile exe bin/server.dart -o bin/server
+
+FROM debian:stable-slim
+COPY --from=build /runtime/ /
+COPY --from=build /app/bin/server /app/bin/
+
+EXPOSE 8080
+CMD ["/app/bin/server"]
