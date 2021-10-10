@@ -29,7 +29,7 @@ If you have [Docker Desktop](https://www.docker.com/get-started) installed, you
 can build and run with the `docker` command:
 
 ```
-$ docker build . -t myserver
+$ docker build -f DockerfimeArm64 -t myserver .
 $ docker run -it -p 8080:8080 myserver
 Server listening on port 8080
 ```
